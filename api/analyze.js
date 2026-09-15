@@ -1,4 +1,12 @@
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -56,7 +64,6 @@ ${text.substring(0, 5000)}`;
     const data = await response.json();
     const responseText = data.contents[0].parts[0].text;
 
-    // Parse response
     const lines = responseText.split('\n');
     const checks = {};
     lines.forEach(line => {
@@ -66,7 +73,6 @@ ${text.substring(0, 5000)}`;
       }
     });
 
-    // Calculate risk score
     let riskScore = 0;
     let passCount = 0;
     const checkResults = [];
@@ -83,4 +89,23 @@ ${text.substring(0, 5000)}`;
     ];
 
     mapping.forEach(item => {
-      const
+      const value = checks[item.key] || 'UNCLEAR';
+      const pass = value.includes('YES');
+      if (pass) passCount++;
+      else riskScore += 15;
+
+      checkResults.push({ key: item.key, pass, isLaw: item.isLaw });
+    });
+
+    const isRedFlag = riskScore >= 60 || passCount < 5;
+
+    return res.status(200).json({
+      checks: checkResults,
+      riskScore: Math.min(riskScore, 100),
+      isRedFlag,
+      passCount
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
