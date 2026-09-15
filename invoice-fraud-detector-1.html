@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Fraud Detector - Gemini</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/tabler-icons.min.css">
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --text-primary: #1a1a1a;
+      --text-secondary: #666666;
+      --text-muted: #999999;
+      --text-success: #047857;
+      --surface-0: #f5f5f5;
+      --surface-1: #f0f0f0;
+      --surface-2: #ffffff;
+      --border: #d0d0d0;
+      --bg-success: #d1fae5;
+      --bg-danger: #fee2e2;
+      --fill-success: #10b981;
+      --fill-danger: #dc2626;
+      --radius: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text-primary: #f5f5f5;
+        --text-secondary: #b0b0b0;
+        --text-muted: #808080;
+        --text-success: #6ee7b7;
+        --surface-0: #1a1a1a;
+        --surface-1: #2a2a2a;
+        --surface-2: #3a3a3a;
+        --border: #4a4a4a;
+        --bg-danger: #7f1d1d;
+        --bg-success: #064e3b;
+        --fill-danger: #ef4444;
+        --fill-success: #34d399;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--surface-0);
+      color: var(--text-primary);
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .version {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--surface-1);
+      transition: all 0.2s;
+      margin-bottom: 2rem;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--text-secondary);
+    }
+
+    .upload-icon {
+      font-size: 32px;
+      color: var(--text-secondary);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin: 0 0 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .upload-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    #result {
+      display: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .preview-container {
+      background: var(--surface-1);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 600px;
+    }
+
+    .preview-controls {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: var(--surface-2);
+      border-bottom: 0.5px solid var(--border);
+      justify-content: center;
+    }
+
+    .zoom-button {
+      padding: 6px 12px;
+      background: var(--surface-1);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    .zoom-button:hover {
+      background: var(--surface-2);
+    }
+
+    .zoom-level {
+      font-size: 12px;
+      color: var(--text-secondary);
+      min-width: 50px;
+      text-align: center;
+      padding: 6px;
+    }
+
+    #previewScroll {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: white;
+    }
+
+    #previewCanvas {
+      display: block;
+      max-width: none;
+    }
+
+    .checks-column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .result-card {
+      background-color: var(--surface-2);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .verdict {
+      font-size: 18px;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .confidence {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0.25rem 0 0;
+    }
+
+    .check-card {
+      background-color: var(--surface-2);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+
+    .card-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin: 0 0 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .checks-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.75rem;
+      border-radius: var(--radius);
+      font-size: 14px;
+    }
+
+    .check-item.pass {
+      background-color: var(--bg-success);
+      color: var(--text-success);
+    }
+
+    .check-item.fail {
+      background-color: var(--bg-danger);
+      color: #c41e3a;
+    }
+
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border);
+      border-top-color: var(--text-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #error {
+      display: none;
+      background-color: var(--bg-danger);
+      border: 0.5px solid #fca5a5;
+      border-radius: var(--radius);
+      padding: 1rem;
+      color: #c41e3a;
+      margin-top: 1rem;
+    }
+
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 0.5px solid var(--border);
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 900px) {
+      #result {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Invoice Fraud Detector</h1>
+      <p class="subtitle">AI-powered invoice analysis using Gemini</p>
+      <p class="version">v4.1 - Backend Edition</p>
+    </div>
+
+    <div class="upload-zone" id="dropZone">
+      <i class="ti ti-upload upload-icon" aria-hidden="true"></i>
+      <p class="upload-title">Drop invoice here or click to upload</p>
+      <p class="upload-text">PDF files only</p>
+      <input type="file" id="fileInput" accept=".pdf">
+    </div>
+
+    <div id="result">
+      <div class="preview-container">
+        <div class="preview-controls">
+          <button class="zoom-button" id="zoomOut">−</button>
+          <span class="zoom-level" id="zoomLevel">100%</span>
+          <button class="zoom-button" id="zoomIn">+</button>
+          <button class="zoom-button" id="resetZoom">Reset</button>
+        </div>
+        <div id="previewScroll">
+          <canvas id="previewCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="checks-column">
+        <div class="result-card">
+          <div class="result-header">
+            <div id="badge" class="badge">
+              <i class="ti ti-alert-circle" aria-hidden="true"></i>
+            </div>
+            <div>
+              <p id="verdict" class="verdict"></p>
+              <p id="confidence" class="confidence"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="check-card">
+          <p class="card-label">UK Invoice Compliance</p>
+          <div id="lawChecks" class="checks-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <p style="color: var(--text-secondary);">Analyzing invoice with Gemini...</p>
+    </div>
+
+    <div id="error"></div>
+
+    <div class="footer">
+      <p>Powered by Google Gemini. Your API key is secure on the backend.</p>
+    </div>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const resultDiv = document.getElementById('result');
+    const loadingDiv = document.getElementById('loading');
+    const errorDiv = document.getElementById('error');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.opacity = '0.7';
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.style.opacity = '1';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.opacity = '1';
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        analyzeFile();
+      }
+    });
+
+    fileInput.addEventListener('change', analyzeFile);
+
+    let currentZoom = 1;
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      currentZoom += 0.2;
+      updateZoom();
+    });
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      if (currentZoom > 0.4) currentZoom -= 0.2;
+      updateZoom();
+    });
+    document.getElementById('resetZoom').addEventListener('click', () => {
+      currentZoom = 1;
+      updateZoom();
+    });
+
+    function updateZoom() {
+      const canvas = document.getElementById('previewCanvas');
+      canvas.style.transform = `scale(${currentZoom})`;
+      canvas.style.transformOrigin = 'top center';
+      document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
+    }
+
+    async function analyzeFile() {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      resultDiv.style.display = 'none';
+      errorDiv.style.display = 'none';
+      loadingDiv.style.display = 'block';
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+
+        const firstPage = await pdf.getPage(1);
+        const canvas = document.getElementById('previewCanvas');
+        const context = canvas.getContext('2d');
+        const viewport = firstPage.getViewport({scale: 1.5});
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await firstPage.render({canvasContext: context, viewport: viewport}).promise;
+
+        let fullText = '';
+        for (let i = 0; i < pdf.numPages; i++) {
+          const page = await pdf.getPage(i + 1);
+          const textContent = await page.getTextContent();
+          fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+        }
+
+        const result = await analyzeWithGemini(fullText);
+        displayResult(result);
+      } catch (err) {
+        errorDiv.textContent = 'Error: ' + err.message;
+        errorDiv.style.display = 'block';
+      }
+
+      loadingDiv.style.display = 'none';
+    }
+
+    async function analyzeWithGemini(pdfText) {
+      const backendUrl = 'https://invoice-fraud-detector-f3prugga2-robbie18.vercel.app/api/analyze';
+      
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: pdfText})
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result;
+    }
+
+    function displayResult(result) {
+      resultDiv.style.display = 'grid';
+
+      const verdict = document.getElementById('verdict');
+      const confidence = document.getElementById('confidence');
+      const badge = document.getElementById('badge');
+
+      if (result.isRedFlag) {
+        verdict.textContent = 'RED - Likely fraud';
+        verdict.style.color = '#c41e3a';
+        confidence.textContent = `Risk score: ${result.riskScore}% | ${result.passCount}/8 checks passed`;
+        badge.style.background = 'var(--fill-danger)';
+        badge.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i>';
+      } else {
+        verdict.textContent = 'GREEN - Likely legitimate';
+        verdict.style.color = 'var(--text-success)';
+        confidence.textContent = `Risk score: ${result.riskScore}% | ${result.passCount}/8 checks passed`;
+        badge.style.background = 'var(--fill-success)';
+        badge.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+      }
+
+      const lawContainer = document.getElementById('lawChecks');
+      lawContainer.innerHTML = '';
+      result.checks.forEach(check => {
+        const item = document.createElement('div');
+        item.className = `check-item ${check.pass ? 'pass' : 'fail'}`;
+        item.innerHTML = `<span style="font-weight: 500; min-width: 20px;">${check.pass ? '✓' : '✗'}</span><span>${check.key}</span>`;
+        lawContainer.appendChild(item);
+      });
+    }
+  </script>
+</body>
+</html>
