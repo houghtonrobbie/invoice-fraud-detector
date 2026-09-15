@@ -315,7 +315,7 @@
     <div class="header">
       <h1>Invoice Fraud Detector</h1>
       <p class="subtitle">AI-powered invoice analysis using Gemini</p>
-      <p class="version">v4.1 - Backend Edition</p>
+      <p class="version">v4.0 - Gemini Edition</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
@@ -366,11 +366,13 @@
     <div id="error"></div>
 
     <div class="footer">
-      <p>Powered by Google Gemini. Your API key is secure on the backend.</p>
+      <p>Powered by Google Gemini. Analysis runs locally and through Gemini API.</p>
     </div>
   </div>
 
   <script>
+
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
     const dropZone = document.getElementById('dropZone');
@@ -431,6 +433,7 @@
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
 
+        // Render preview
         const firstPage = await pdf.getPage(1);
         const canvas = document.getElementById('previewCanvas');
         const context = canvas.getContext('2d');
@@ -439,6 +442,7 @@
         canvas.height = viewport.height;
         await firstPage.render({canvasContext: context, viewport: viewport}).promise;
 
+        // Extract text
         let fullText = '';
         for (let i = 0; i < pdf.numPages; i++) {
           const page = await pdf.getPage(i + 1);
@@ -446,6 +450,7 @@
           fullText += textContent.items.map(item => item.str).join(' ') + '\n';
         }
 
+        // Send to Gemini
         const result = await analyzeWithGemini(fullText);
         displayResult(result);
       } catch (err) {
@@ -457,7 +462,7 @@
     }
 
     async function analyzeWithGemini(pdfText) {
-      const backendUrl = 'https://invoice-fraud-detector-f3prugga2-robbie18.vercel.app/api/analyze';
+      const backendUrl = 'https://invoice-fraud-detector-5u74pruhp-robbie18.vercel.app/api/analyze';
       
       const response = await fetch(backendUrl, {
         method: 'POST',
