@@ -24,7 +24,6 @@
       --surface-2: #ffffff;
       --border: #d0d0d0;
       --border-strong: #b0b0b0;
-      --border-danger: #fca5a5;
       --bg-danger: #fee2e2;
       --bg-success: #d1fae5;
       --fill-danger: #dc2626;
@@ -44,7 +43,6 @@
         --surface-2: #3a3a3a;
         --border: #4a4a4a;
         --border-strong: #5a5a5a;
-        --border-danger: #7f1d1d;
         --bg-danger: #7f1d1d;
         --bg-success: #064e3b;
         --fill-danger: #ef4444;
@@ -60,7 +58,7 @@
     }
 
     .container {
-      max-width: 700px;
+      max-width: 1200px;
       margin: 0 auto;
     }
 
@@ -78,6 +76,12 @@
       font-size: 14px;
       color: var(--text-secondary);
       margin: 0;
+    }
+
+    .version {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
     }
 
     .upload-zone {
@@ -125,8 +129,32 @@
     }
 
     #result {
-      margin-top: 2rem;
       display: none;
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .preview-container {
+      background: var(--surface-1);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #previewCanvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: white;
+    }
+
+    .checks-column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
     }
 
     .result-card {
@@ -134,14 +162,12 @@
       border: 0.5px solid var(--border);
       border-radius: 12px;
       padding: 1.5rem;
-      margin-bottom: 1.5rem;
     }
 
     .result-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 1rem;
     }
 
     .badge {
@@ -152,7 +178,6 @@
       align-items: center;
       justify-content: center;
       font-size: 28px;
-      font-weight: 500;
       color: white;
       flex-shrink: 0;
     }
@@ -170,12 +195,11 @@
       margin: 0.25rem 0 0;
     }
 
-    .metadata-card {
+    .check-card {
       background-color: var(--surface-2);
       border: 0.5px solid var(--border);
       border-radius: 12px;
       padding: 1.5rem;
-      margin-bottom: 1rem;
     }
 
     .card-label {
@@ -187,58 +211,34 @@
       letter-spacing: 0.5px;
     }
 
-    .metadata-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .metadata-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-      padding: 0.5rem 0;
-      border-bottom: 0.5px solid var(--border);
-    }
-
-    .metadata-label {
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    .metadata-value {
-      color: var(--text-primary);
-      text-align: right;
-      max-width: 50%;
-      word-wrap: break-word;
-    }
-
-    .red-flags {
-      background-color: var(--surface-2);
-      border: 0.5px solid var(--border-danger);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-      display: none;
-    }
-
-    .flags-list {
+    .checks-list {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
     }
 
-    .flag-item {
-      font-size: 13px;
-      color: var(--text-danger);
-      padding: 0.5rem 0;
-      border-bottom: 0.5px solid var(--border-danger);
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.75rem;
+      border-radius: var(--radius);
+      font-size: 14px;
     }
 
-    .flag-icon {
-      font-size: 14px;
-      vertical-align: -2px;
-      margin-right: 6px;
+    .check-item.pass {
+      background-color: var(--bg-success);
+      color: var(--text-success);
+    }
+
+    .check-item.fail {
+      background-color: var(--bg-danger);
+      color: var(--text-danger);
+    }
+
+    .check-icon {
+      font-weight: 500;
+      min-width: 20px;
     }
 
     #loading {
@@ -264,7 +264,7 @@
     #error {
       display: none;
       background-color: var(--bg-danger);
-      border: 0.5px solid var(--border-danger);
+      border: 0.5px solid #fca5a5;
       border-radius: var(--radius);
       padding: 1rem;
       color: var(--text-danger);
@@ -279,14 +279,21 @@
       font-size: 12px;
       color: var(--text-muted);
     }
+
+    @media (max-width: 900px) {
+      #result {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>Invoice Fraud Detector</h1>
-      <p class="subtitle">Upload a PDF to check metadata for fraud indicators</p>
-      <p style="font-size: 11px; color: var(--text-muted); margin-top: 0.5rem;">v2.5</p>
+      <p class="subtitle">Upload a PDF to check metadata and compliance</p>
+      <p class="version">v3.0</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
@@ -297,32 +304,38 @@
     </div>
 
     <div id="result">
-      <div class="result-card">
-        <div class="result-header">
-          <div id="badge" class="badge">
-            <i class="ti ti-alert-circle" aria-hidden="true"></i>
-          </div>
-          <div>
-            <p id="verdict" class="verdict"></p>
-            <p id="confidence" class="confidence"></p>
+      <div class="preview-container">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+
+      <div class="checks-column">
+        <div class="result-card">
+          <div class="result-header">
+            <div id="badge" class="badge">
+              <i class="ti ti-alert-circle" aria-hidden="true"></i>
+            </div>
+            <div>
+              <p id="verdict" class="verdict"></p>
+              <p id="confidence" class="confidence"></p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="metadata-card">
-        <p class="card-label">Metadata</p>
-        <div id="metadataList" class="metadata-list"></div>
-      </div>
+        <div class="check-card">
+          <p class="card-label">Metadata analysis</p>
+          <div id="metadataChecks" class="checks-list"></div>
+        </div>
 
-      <div id="redFlags" class="red-flags">
-        <p class="card-label">Red flags detected</p>
-        <div id="flagsList" class="flags-list"></div>
+        <div class="check-card">
+          <p class="card-label">UK invoice law compliance</p>
+          <div id="lawChecks" class="checks-list"></div>
+        </div>
       </div>
     </div>
 
     <div id="loading">
       <div class="spinner"></div>
-      <p style="color: var(--text-secondary);">Analyzing PDF...</p>
+      <p style="color: var(--text-secondary);">Analyzing invoice...</p>
     </div>
 
     <div id="error"></div>
@@ -333,15 +346,7 @@
   </div>
 
   <script>
-    // Wait for PDF.js to load
-    function initPDF() {
-      if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-      } else {
-        setTimeout(initPDF, 100);
-      }
-    }
-    initPDF();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -385,7 +390,14 @@
         const metadata = await pdf.getMetadata();
         const info = metadata.info || {};
 
-        // Extract text from all pages
+        const firstPage = await pdf.getPage(1);
+        const canvas = document.getElementById('previewCanvas');
+        const context = canvas.getContext('2d');
+        const viewport = firstPage.getViewport({scale: 1.5});
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await firstPage.render({canvasContext: context, viewport: viewport}).promise;
+
         let fullText = '';
         for (let i = 0; i < pdf.numPages; i++) {
           const page = await pdf.getPage(i + 1);
@@ -405,8 +417,9 @@
     }
 
     function checkFraudIndicators(info, fullText) {
-      const redFlags = [];
       let riskScore = 0;
+      const metadataChecks = [];
+      const lawChecks = [];
 
       const creator = (info.Creator || '').toLowerCase();
       const author = (info.Author || '').toLowerCase();
@@ -414,84 +427,71 @@
       const producer = (info.Producer || '').toLowerCase();
       const keywords = (info.Keywords || '').toLowerCase();
 
-      // Metadata checks - Suspicious design tools
       const suspiciousDesignTools = ['canva', 'adobe', 'indesign', 'google docs'];
       const accountingSoftware = ['sap', 'quickbooks', 'xero', 'sage', 'freshbooks', 'netsuite', 'workbench', 'aspose'];
 
       if (suspiciousDesignTools.some(tool => creator.includes(tool))) {
-        redFlags.push('Creator is a design tool (Canva, Adobe), not accounting software');
+        metadataChecks.push({pass: false, text: 'Creator is design software (Canva, Adobe)'});
         riskScore += 50;
-      }
-
-      if (accountingSoftware.some(soft => creator.includes(soft))) {
+      } else if (accountingSoftware.some(soft => creator.includes(soft))) {
+        metadataChecks.push({pass: true, text: 'Creator is accounting software'});
         riskScore -= 30;
+      } else {
+        metadataChecks.push({pass: true, text: 'Creator software looks legitimate'});
       }
 
       if (keywords && keywords.match(/^[a-z0-9]{10,}$/) && !keywords.includes(' ')) {
-        redFlags.push('Keywords contain random hash or gibberish');
+        metadataChecks.push({pass: false, text: 'Keywords contain random gibberish'});
         riskScore += 45;
+      } else {
+        metadataChecks.push({pass: true, text: 'No random keywords'});
       }
 
       const templateIndicators = ['freelancer invoice', 'minimal invoice', 'invoice template', 'sample invoice', 'black and gray'];
       if (templateIndicators.some(t => title.includes(t))) {
-        redFlags.push('Title matches a generic invoice template');
+        metadataChecks.push({pass: false, text: 'Title matches generic template'});
         riskScore += 40;
+      } else {
+        metadataChecks.push({pass: true, text: 'Not a generic template title'});
       }
 
       if (suspiciousDesignTools.some(tool => producer.includes(tool))) {
-        redFlags.push('Producer is design software');
+        metadataChecks.push({pass: false, text: 'Producer is design software'});
         riskScore += 35;
+      } else {
+        metadataChecks.push({pass: true, text: 'Producer looks legitimate'});
       }
 
-      if (riskScore > 0) {
-        if (author && author.length > 0 && author.length < 25 && author.split(' ').length <= 3) {
-          if (!['frankham', 'company', 'group', 'limited', 'ltd', 'inc', 'llc', 'gmbh'].some(c => author.includes(c))) {
-            redFlags.push('Author is a person\'s name, not a company');
-            riskScore += 20;
-          }
-        }
-      }
+      const hasVatNumber = /GB\d{9,12}/.test(fullText);
+      metadataChecks.push({pass: hasVatNumber, text: 'VAT number present'});
+      if (!hasVatNumber) riskScore += 20;
 
-      // Content checks - UK invoice requirements
-      const hasVatNumber = /GB\d{9,12}/.test(fullText); // VAT number starts with GB
-      const hasCompanyReg = /Companies House|Company Registration|Registered Company|Company number/i.test(fullText) || /\d{8}/.test(fullText); // 8-digit company number
       const hasInvoiceNumber = /invoice.*\d{5,}|no\s*\d{5,}|#\d{5,}/i.test(fullText);
-      const hasDate = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(fullText); // Date in format
-      const hasDescription = /description|service|goods|product|license|lease|broadband|parking|it|office/i.test(fullText);
-      const hasVaguDescription = /Professional Services Rendered|Multidisciplinary Consultancy Services|Services Provided/.test(fullText);
-      const hasAmount = /£|\$|EUR|Amount|Total/.test(fullText);
+      lawChecks.push({pass: hasInvoiceNumber, text: 'Invoice number found'});
+      if (!hasInvoiceNumber) riskScore += 25;
+
+      const hasDate = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(fullText);
+      lawChecks.push({pass: hasDate, text: 'Invoice date found'});
+      if (!hasDate) riskScore += 20;
+
       const hasAddress = /address|street|road|house|park|building|suite|floor/i.test(fullText);
+      lawChecks.push({pass: hasAddress, text: 'Address details found'});
+      if (!hasAddress) riskScore += 20;
 
-      // Flag if missing critical UK invoice requirements
-      if (!hasInvoiceNumber) {
-        redFlags.push('Missing invoice number');
-        riskScore += 25;
-      }
+      const hasVaguDescription = /Professional Services Rendered|Multidisciplinary Consultancy Services|Services Provided/.test(fullText);
+      lawChecks.push({pass: !hasVaguDescription, text: 'Proper description (not vague)'});
+      if (hasVaguDescription && riskScore >= 30) riskScore += 30;
 
-      if (!hasDate) {
-        redFlags.push('Missing invoice date');
-        riskScore += 20;
-      }
-
-      if (!hasAddress) {
-        redFlags.push('Missing address details');
-        riskScore += 20;
-      }
-
-      // Vague description is a red flag, especially combined with other issues
-      if (hasVaguDescription && riskScore >= 30) {
-        redFlags.push('Vague service description (not specific goods/services)');
-        riskScore += 30;
-      }
-
-      // If content looks too minimal, flag it
       if (fullText.length < 500) {
-        redFlags.push('Invoice content appears unusually brief');
+        lawChecks.push({pass: false, text: 'Invoice content appears brief'});
         riskScore += 15;
+      } else {
+        lawChecks.push({pass: true, text: 'Sufficient invoice content'});
       }
 
       return {
-        redFlags,
+        metadataChecks,
+        lawChecks,
         riskScore: Math.min(Math.max(riskScore, 0), 100),
         info,
         isRedFlag: riskScore >= 60
@@ -499,13 +499,11 @@
     }
 
     function displayResult(result, info) {
-      resultDiv.style.display = 'block';
+      resultDiv.style.display = 'grid';
 
       const verdict = document.getElementById('verdict');
       const confidence = document.getElementById('confidence');
       const badge = document.getElementById('badge');
-      const redFlagsDiv = document.getElementById('redFlags');
-      const flagsList = document.getElementById('flagsList');
 
       if (result.isRedFlag) {
         verdict.textContent = 'RED - Likely fraud';
@@ -519,64 +517,23 @@
         badge.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
       }
 
-      const metadataList = document.getElementById('metadataList');
-      metadataList.innerHTML = '';
-
-      const fields = [
-        {label: 'Creator', value: info.Creator || '—'},
-        {label: 'Author', value: info.Author || '—'},
-        {label: 'Producer', value: info.Producer || '—'},
-        {label: 'Title', value: info.Title || '—'},
-        {label: 'Keywords', value: info.Keywords || '—'},
-        {label: 'Creation Date', value: info.CreationDate ? formatDate(info.CreationDate) : '—'},
-        {label: 'Modification Date', value: info.ModDate ? formatDate(info.ModDate) : '—'}
-      ];
-
-      fields.forEach(field => {
+      const metadataContainer = document.getElementById('metadataChecks');
+      metadataContainer.innerHTML = '';
+      result.metadataChecks.forEach(check => {
         const item = document.createElement('div');
-        item.className = 'metadata-item';
-        item.innerHTML = `<span class="metadata-label">${field.label}</span><span class="metadata-value">${escapeHtml(field.value)}</span>`;
-        metadataList.appendChild(item);
+        item.className = `check-item ${check.pass ? 'pass' : 'fail'}`;
+        item.innerHTML = `<span class="check-icon">${check.pass ? '✓' : '✗'}</span><span>${check.text}</span>`;
+        metadataContainer.appendChild(item);
       });
 
-      if (result.redFlags.length > 0) {
-        redFlagsDiv.style.display = 'block';
-        flagsList.innerHTML = '';
-        result.redFlags.forEach(flag => {
-          const item = document.createElement('div');
-          item.className = 'flag-item';
-          item.innerHTML = `<i class="ti ti-alert-triangle flag-icon" aria-hidden="true"></i>${escapeHtml(flag)}`;
-          flagsList.appendChild(item);
-        });
-      } else {
-        redFlagsDiv.style.display = 'none';
-      }
-    }
-
-    function formatDate(dateStr) {
-      if (!dateStr) return '—';
-      try {
-        if (dateStr.startsWith('D:')) {
-          dateStr = dateStr.substring(2);
-        }
-        const year = dateStr.substring(0, 4);
-        const month = dateStr.substring(4, 6);
-        const day = dateStr.substring(6, 8);
-        return `${day}/${month}/${year}`;
-      } catch {
-        return dateStr;
-      }
-    }
-
-    function escapeHtml(text) {
-      const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-      };
-      return text.replace(/[&<>"']/g, m => map[m]);
+      const lawContainer = document.getElementById('lawChecks');
+      lawContainer.innerHTML = '';
+      result.lawChecks.forEach(check => {
+        const item = document.createElement('div');
+        item.className = `check-item ${check.pass ? 'pass' : 'fail'}`;
+        item.innerHTML = `<span class="check-icon">${check.pass ? '✓' : '✗'}</span><span>${check.text}</span>`;
+        lawContainer.appendChild(item);
+      });
     }
   </script>
 </body>
