@@ -17,6 +17,7 @@
       --text-primary: #1a1a1a;
       --text-secondary: #666666;
       --text-muted: #999999;
+      --text-success: #047857;
       --surface-0: #f5f5f5;
       --surface-1: #f0f0f0;
       --surface-2: #ffffff;
@@ -126,35 +127,13 @@
       height: 600px;
     }
 
-    .preview-controls {
-      display: flex;
-      gap: 8px;
+    .preview-label {
+      font-size: 12px;
+      color: var(--text-muted);
       padding: 8px;
+      text-align: center;
       background: var(--surface-2);
       border-bottom: 0.5px solid var(--border);
-      justify-content: center;
-    }
-
-    .zoom-button {
-      padding: 6px 12px;
-      background: var(--surface-1);
-      border: 0.5px solid var(--border);
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 12px;
-      color: var(--text-primary);
-    }
-
-    .zoom-button:hover {
-      background: var(--surface-2);
-    }
-
-    .zoom-level {
-      font-size: 12px;
-      color: var(--text-secondary);
-      min-width: 50px;
-      text-align: center;
-      padding: 6px;
     }
 
     #previewScroll {
@@ -186,6 +165,40 @@
       padding: 1.5rem;
     }
 
+    .verdict-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .verdict-text {
+      flex: 1;
+    }
+
+    .verdict-title {
+      font-size: 16px;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .verdict-reason {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin: 0.5rem 0 0;
+    }
+
     .card-title {
       font-size: 13px;
       font-weight: 500;
@@ -198,9 +211,15 @@
     .metadata-item {
       font-size: 13px;
       margin-bottom: 0.75rem;
-      padding: 0.5rem;
+      padding: 0.75rem;
       background: var(--surface-1);
       border-radius: var(--radius);
+      border-left: 3px solid var(--border);
+    }
+
+    .metadata-item.warning {
+      border-left-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.05);
     }
 
     .metadata-label {
@@ -211,6 +230,14 @@
     .metadata-value {
       color: var(--text-primary);
       word-break: break-all;
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 12px;
+    }
+
+    .warning-icon {
+      color: #f59e0b;
+      font-weight: bold;
     }
 
     .checklist-item {
@@ -303,32 +330,37 @@
   <div class="container">
     <div class="header">
       <h1>Invoice Checker</h1>
-      <p class="subtitle">Metadata auto-check + manual UK law verification</p>
+      <p class="subtitle">Metadata analysis + manual UK law verification</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
       <i class="ti ti-upload upload-icon" aria-hidden="true"></i>
       <p class="upload-title">Drop invoice here or click to upload</p>
-      <p class="upload-text">PDF files only</p>
+      <p class="upload-text">PDF files only (Ctrl+scroll to zoom)</p>
       <input type="file" id="fileInput" accept=".pdf">
     </div>
 
     <div id="result">
       <div class="preview-container">
-        <div class="preview-controls">
-          <button class="zoom-button" id="zoomOut">−</button>
-          <span class="zoom-level" id="zoomLevel">100%</span>
-          <button class="zoom-button" id="zoomIn">+</button>
-          <button class="zoom-button" id="resetZoom">Reset</button>
-        </div>
+        <div class="preview-label">Use Ctrl + scroll wheel to zoom</div>
         <div id="previewScroll">
           <canvas id="previewCanvas"></canvas>
         </div>
       </div>
 
       <div class="right-column">
+        <div class="card verdict-card">
+          <div id="badge" class="badge">
+            <i class="ti ti-alert-circle" aria-hidden="true"></i>
+          </div>
+          <div class="verdict-text">
+            <p id="verdict" class="verdict-title"></p>
+            <p id="verdictReason" class="verdict-reason"></p>
+          </div>
+        </div>
+
         <div class="card">
-          <p class="card-title">Metadata</p>
+          <p class="card-title">Metadata Analysis</p>
           <div id="metadataList"></div>
         </div>
 
@@ -355,6 +387,7 @@
     const resultDiv = document.getElementById('result');
     const loadingDiv = document.getElementById('loading');
     const errorDiv = document.getElementById('error');
+    const previewScroll = document.getElementById('previewScroll');
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => {
@@ -376,25 +409,18 @@
     fileInput.addEventListener('change', analyzeFile);
 
     let currentZoom = 1;
-    document.getElementById('zoomIn').addEventListener('click', () => {
-      currentZoom += 0.2;
-      updateZoom();
-    });
-    document.getElementById('zoomOut').addEventListener('click', () => {
-      if (currentZoom > 0.4) currentZoom -= 0.2;
-      updateZoom();
-    });
-    document.getElementById('resetZoom').addEventListener('click', () => {
-      currentZoom = 1;
-      updateZoom();
-    });
+    const canvas = document.getElementById('previewCanvas');
 
-    function updateZoom() {
-      const canvas = document.getElementById('previewCanvas');
+    previewScroll.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      
+      currentZoom += (e.deltaY > 0 ? -0.1 : 0.1);
+      currentZoom = Math.max(0.4, Math.min(currentZoom, 3));
+      
       canvas.style.transform = `scale(${currentZoom})`;
       canvas.style.transformOrigin = 'top center';
-      document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
-    }
+    });
 
     async function analyzeFile() {
       const file = fileInput.files[0];
@@ -411,7 +437,6 @@
         const info = metadata.info || {};
 
         const firstPage = await pdf.getPage(1);
-        const canvas = document.getElementById('previewCanvas');
         const context = canvas.getContext('2d');
         const viewport = firstPage.getViewport({scale: 1.5});
         canvas.width = viewport.width;
@@ -426,7 +451,8 @@
         }
 
         displayMetadata(info);
-        displayChecklist(fullText);
+        const checklist = displayChecklist(fullText);
+        displayVerdict(info, checklist);
       } catch (err) {
         errorDiv.textContent = 'Error: ' + err.message;
         errorDiv.style.display = 'block';
@@ -440,18 +466,83 @@
       const list = document.getElementById('metadataList');
       list.innerHTML = '';
 
-      const metadata = [
-        {label: 'Creator', value: info.Creator || 'Not found'},
-        {label: 'Producer', value: info.Producer || 'Not found'},
-        {label: 'Author', value: info.Author || 'Not found'},
-        {label: 'Title', value: info.Title || 'Not found'},
-        {label: 'Keywords', value: info.Keywords || 'None'}
+      const suspiciousDesignTools = ['canva', 'adobe', 'indesign', 'google docs', 'figma'];
+      const legitimateTools = ['sap', 'quickbooks', 'xero', 'sage', 'freshbooks', 'netsuite', 'workbench', 'aspose'];
+      
+      const checks = [
+        {
+          label: 'Creator',
+          value: info.Creator || 'Not found',
+          check: (val) => {
+            const lower = val.toLowerCase();
+            if (suspiciousDesignTools.some(t => lower.includes(t))) return {warning: true, text: 'Created in design tool (Canva, Adobe, etc.)'};
+            if (legitimateTools.some(t => lower.includes(t))) return {warning: false, text: 'Professional accounting software'};
+            if (!val || val === 'Not found') return {warning: true, text: 'No creator information'};
+            return {warning: false, text: 'Standard software'};
+          }
+        },
+        {
+          label: 'Producer',
+          value: info.Producer || 'Not found',
+          check: (val) => {
+            const lower = val.toLowerCase();
+            if (suspiciousDesignTools.some(t => lower.includes(t))) return {warning: true, text: 'Design tool output'};
+            return {warning: false};
+          }
+        },
+        {
+          label: 'Author',
+          value: info.Author || 'Not found',
+          check: (val) => {
+            if (!val || val === 'Not found') return {warning: false};
+            if (val.split(' ').length === 1 && val.length < 15) return {warning: false, text: 'Person name (expected)'};
+            if (val.length > 50) return {warning: true, text: 'Unusually long author field'};
+            return {warning: false};
+          }
+        },
+        {
+          label: 'Title',
+          value: info.Title || 'Not found',
+          check: (val) => {
+            const lower = val.toLowerCase();
+            const templates = ['template', 'sample', 'example', 'invoice template', 'minimal invoice', 'freelancer invoice'];
+            if (templates.some(t => lower.includes(t))) return {warning: true, text: 'Generic template title'};
+            if (!val || val === 'Not found') return {warning: true, text: 'No title set'};
+            return {warning: false};
+          }
+        },
+        {
+          label: 'Keywords',
+          value: info.Keywords || 'None',
+          check: (val) => {
+            if (!val || val === 'None') return {warning: false, text: 'No keywords'};
+            if (/^[a-z0-9]{15,}$/.test(val)) return {warning: true, text: 'Random gibberish keywords'};
+            return {warning: false};
+          }
+        },
+        {
+          label: 'Creation Date',
+          value: info.CreationDate ? new Date(info.CreationDate).toLocaleDateString() : 'Unknown',
+          check: (val) => {
+            if (val === 'Unknown') return {warning: true, text: 'No creation date'};
+            return {warning: false};
+          }
+        }
       ];
 
-      metadata.forEach(item => {
+      checks.forEach(item => {
+        const result = item.check(item.value);
+        const isWarning = result.warning;
+        
         const div = document.createElement('div');
-        div.className = 'metadata-item';
-        div.innerHTML = `<span class="metadata-label">${item.label}:</span> <span class="metadata-value">${item.value}</span>`;
+        div.className = `metadata-item ${isWarning ? 'warning' : ''}`;
+        
+        let html = `<span class="metadata-label">${item.label}</span>`;
+        if (isWarning) html += ' <span class="warning-icon">⚠</span>';
+        html += `<span class="metadata-value">${item.value}</span>`;
+        if (result.text) html += `<span class="auto-detected">${result.text}</span>`;
+        
+        div.innerHTML = html;
         list.appendChild(div);
       });
     }
@@ -463,50 +554,58 @@
       const checks = [
         {
           name: 'Invoice Number',
-          regex: /invoice\s*(?:no|number|#)?\s*[:#]?\s*(\d{5,})|invoice\s*(\d{7,})/i,
+          regex: /invoice\s*(?:no|number|#)?\s*[:#]?\s*(\d{5,})|invoice\s*(\d{7,})|inv\s*[:#]?\s*(\d{5,})/i,
           description: 'Unique invoice identifier'
         },
         {
           name: 'Invoice Date',
-          regex: /\d{1,2}\s*[\/\-\.]\s*\d{1,2}\s*[\/\-\.]\s*\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s*,?\s*\d{4}/i,
+          regex: /\d{1,2}\s*[\/\-\.]\s*\d{1,2}\s*[\/\-\.]\s*\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s*,?\s*\d{4}|date[:\s]+\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/i,
           description: 'Date of invoice'
         },
         {
           name: 'VAT Number',
-          regex: /GB\s*\d{9,12}|VAT\s*(?:Number|No)?\s*\d{9,12}/i,
+          regex: /GB\s*\d{9,12}|VAT\s*(?:Number|No|Reg|#)?\s*:?\s*\d{9,12}|VAT\s*ID[:\s]+\d{9,12}/i,
           description: 'VAT registration (GB...)'
         },
         {
+          name: 'Supplier Details',
+          regex: /(?:from|supplier|company|invoice from|bill from)[:\s]*([A-Z][^\n]{20,}?(?:Ltd|Limited|plc|Inc|LLC|GmbH|AG|SA))/i,
+          description: 'Supplier name and full details'
+        },
+        {
           name: 'Supplier Address',
-          regex: /(?:from|supplier|company|address)[:\s]+[^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive)/i,
+          regex: /(?:address|from)[:\s]*([^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive|place|close|park|court)[^\n]*)/i,
           description: 'Full supplier address'
         },
         {
           name: 'Customer Address',
-          regex: /(?:bill to|customer|client|ship to)[:\s]+[^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive)/i,
+          regex: /(?:bill to|customer|client|ship to|invoice to)[:\s]*([^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive|place|close|park|court)[^\n]*)/i,
           description: 'Full customer address'
         },
         {
           name: 'Line Items/Description',
-          regex: /(?:description|item|service|product)[:\s]([^\n]{20,})/i,
-          description: 'Detailed goods/services description'
+          regex: /(?:description|item|service|product|line item)[:\s]*([^\n]{15,})/i,
+          description: 'Detailed goods/services (not vague)'
         },
         {
           name: 'Total Amount',
-          regex: /(?:total|amount due|grand total|total due)[:\s]*[£$€]?\s*[\d,]+\.?\d*/i,
-          description: 'Invoice total'
+          regex: /(?:total|amount due|grand total|total due|total invoice|net total|gross total)[:\s]*[£$€]?\s*[\d,]+\.?\d{0,2}/i,
+          description: 'Clear invoice total'
         },
         {
           name: 'Company Reg Number',
-          regex: /(?:company registration|companies house|reg|registration)[:\s]*(\d{8})/i,
+          regex: /(?:company registration|companies house|reg|registration|co reg|company no)[:\s]*(\d{8})/i,
           description: '8-digit company registration'
         }
       ];
 
+      let checkedCount = 0;
       checks.forEach((check, index) => {
         const found = check.regex.test(fullText);
+        if (found) checkedCount++;
+        
         const match = fullText.match(check.regex);
-        const matchText = match ? match[0].substring(0, 60) : '';
+        const matchText = match ? match[0].substring(0, 55) : '';
 
         const div = document.createElement('div');
         div.className = 'checklist-item';
@@ -520,6 +619,43 @@
         `;
         container.appendChild(div);
       });
+
+      return {total: checks.length, checked: checkedCount};
+    }
+
+    function displayVerdict(info, checklist) {
+      const badge = document.getElementById('badge');
+      const verdict = document.getElementById('verdict');
+      const reason = document.getElementById('verdictReason');
+
+      let suspicionScore = 0;
+      const suspiciousDesignTools = ['canva', 'adobe', 'indesign', 'google docs', 'figma'];
+      const creator = (info.Creator || '').toLowerCase();
+      
+      if (suspiciousDesignTools.some(t => creator.includes(t))) suspicionScore += 40;
+      if (/^[a-z0-9]{15,}$/.test(info.Keywords || '')) suspicionScore += 30;
+      if ((info.Title || '').toLowerCase().includes('template')) suspicionScore += 25;
+      if (!info.Creator || info.Creator === 'Not found') suspicionScore += 15;
+      
+      const completionRate = (checklist.checked / checklist.total) * 100;
+      if (completionRate < 50) suspicionScore += 30;
+      if (completionRate < 30) suspicionScore += 20;
+
+      const isRedFlag = suspicionScore >= 60 || completionRate < 40;
+
+      if (isRedFlag) {
+        verdict.textContent = 'RED - Likely Fraud';
+        verdict.style.color = '#c41e3a';
+        badge.style.background = 'var(--fill-danger)';
+        badge.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i>';
+        reason.textContent = `Suspicion score: ${suspicionScore}/100 | Only ${checklist.checked}/${checklist.total} requirements found`;
+      } else {
+        verdict.textContent = 'GREEN - Likely Legitimate';
+        verdict.style.color = '#047857';
+        badge.style.background = 'var(--fill-success)';
+        badge.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+        reason.textContent = `Suspicion score: ${suspicionScore}/100 | ${checklist.checked}/${checklist.total} requirements found`;
+      }
     }
   </script>
 </body>
