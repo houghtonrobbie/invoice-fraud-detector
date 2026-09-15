@@ -454,7 +454,7 @@
       // Content checks - UK invoice requirements
       const hasVatNumber = /GB\d{9,12}/.test(fullText); // VAT number starts with GB
       const hasCompanyReg = /Companies House|Company Registration|Registered Company|Company number/i.test(fullText) || /\d{8}/.test(fullText); // 8-digit company number
-      const hasInvoiceNumber = /Invoice\s*(?:No|Number|#)[:\s]*\d+/i.test(fullText);
+      const hasInvoiceNumber = /Invoice\s*(?:No|Number|#)[.:\s]*\d+/i.test(fullText) || /Invoice[:\s]+\d{6,}/i.test(fullText);
       const hasDate = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(fullText); // Date in format
       const hasDescription = /description|service|goods|product|license|lease|broadband|parking|it|office/i.test(fullText);
       const hasVaguDescription = /Professional Services Rendered|Multidisciplinary Consultancy Services|Services Provided/.test(fullText);
