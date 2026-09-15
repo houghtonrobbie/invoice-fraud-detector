@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Fraud Detector</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --text-primary: #1a1a1a;
+      --text-secondary: #666666;
+      --text-muted: #999999;
+      --text-danger: #c41e3a;
+      --text-success: #047857;
+      --surface-0: #f5f5f5;
+      --surface-1: #f0f0f0;
+      --surface-2: #ffffff;
+      --border: #d0d0d0;
+      --border-strong: #b0b0b0;
+      --border-danger: #fca5a5;
+      --bg-danger: #fee2e2;
+      --bg-success: #d1fae5;
+      --fill-danger: #dc2626;
+      --fill-success: #10b981;
+      --radius: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text-primary: #f5f5f5;
+        --text-secondary: #b0b0b0;
+        --text-muted: #808080;
+        --text-danger: #fca5a5;
+        --text-success: #6ee7b7;
+        --surface-0: #1a1a1a;
+        --surface-1: #2a2a2a;
+        --surface-2: #3a3a3a;
+        --border: #4a4a4a;
+        --border-strong: #5a5a5a;
+        --border-danger: #7f1d1d;
+        --bg-danger: #7f1d1d;
+        --bg-success: #064e3b;
+        --fill-danger: #ef4444;
+        --fill-success: #34d399;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--surface-0);
+      color: var(--text-primary);
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      background-color: var(--surface-1);
+      transition: all 0.2s;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--border-strong);
+      background-color: var(--surface-2);
+    }
+
+    .upload-zone.dragover {
+      border-color: var(--text-secondary);
+      background-color: var(--surface-2);
+    }
+
+    .upload-icon {
+      font-size: 32px;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .upload-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin: 0 0 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .upload-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    #result {
+      margin-top: 2rem;
+      display: none;
+    }
+
+    .result-card {
+      background-color: var(--surface-2);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1rem;
+    }
+
+    .badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 500;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .verdict {
+      font-size: 18px;
+      font-weight: 500;
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    .confidence {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0.25rem 0 0;
+    }
+
+    .metadata-card {
+      background-color: var(--surface-2);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin: 0 0 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metadata-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .metadata-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 0.5rem 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .metadata-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .metadata-value {
+      color: var(--text-primary);
+      text-align: right;
+      max-width: 50%;
+      word-wrap: break-word;
+    }
+
+    .red-flags {
+      background-color: var(--surface-2);
+      border: 0.5px solid var(--border-danger);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .flags-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .flag-item {
+      font-size: 13px;
+      color: var(--text-danger);
+      padding: 0.5rem 0;
+      border-bottom: 0.5px solid var(--border-danger);
+    }
+
+    .flag-icon {
+      font-size: 14px;
+      vertical-align: -2px;
+      margin-right: 6px;
+    }
+
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border);
+      border-top-color: var(--text-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #error {
+      display: none;
+      background-color: var(--bg-danger);
+      border: 0.5px solid var(--border-danger);
+      border-radius: var(--radius);
+      padding: 1rem;
+      color: var(--text-danger);
+      margin-top: 1rem;
+    }
+
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 0.5px solid var(--border);
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Invoice Fraud Detector</h1>
+      <p class="subtitle">Upload a PDF to check metadata for fraud indicators</p>
+    </div>
+
+    <div class="upload-zone" id="dropZone">
+      <i class="ti ti-upload upload-icon" aria-hidden="true"></i>
+      <p class="upload-title">Drop invoice here or click to upload</p>
+      <p class="upload-text">PDF files only</p>
+      <input type="file" id="fileInput" accept=".pdf">
+    </div>
+
+    <div id="result">
+      <div class="result-card">
+        <div class="result-header">
+          <div id="badge" class="badge">
+            <i class="ti ti-alert-circle" aria-hidden="true"></i>
+          </div>
+          <div>
+            <p id="verdict" class="verdict"></p>
+            <p id="confidence" class="confidence"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="metadata-card">
+        <p class="card-label">Metadata</p>
+        <div id="metadataList" class="metadata-list"></div>
+      </div>
+
+      <div id="redFlags" class="red-flags">
+        <p class="card-label">Red flags detected</p>
+        <div id="flagsList" class="flags-list"></div>
+      </div>
+    </div>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <p style="color: var(--text-secondary);">Analyzing PDF...</p>
+    </div>
+
+    <div id="error"></div>
+
+    <div class="footer">
+      <p>Metadata checking runs locally in your browser. No data is sent anywhere.</p>
+    </div>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const resultDiv = document.getElementById('result');
+    const loadingDiv = document.getElementById('loading');
+    const errorDiv = document.getElementById('error');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        analyzeFile();
+      }
+    });
+
+    fileInput.addEventListener('change', analyzeFile);
+
+    async function analyzeFile() {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      resultDiv.style.display = 'none';
+      errorDiv.style.display = 'none';
+      loadingDiv.style.display = 'block';
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+        const metadata = await pdf.getMetadata();
+        const info = metadata.info || {};
+
+        const fraudIndicators = checkFraudIndicators(info);
+        displayResult(fraudIndicators, info);
+      } catch (err) {
+        errorDiv.textContent = 'Error reading PDF. Make sure it\'s a valid invoice PDF.';
+        errorDiv.style.display = 'block';
+      }
+
+      loadingDiv.style.display = 'none';
+    }
+
+    function checkFraudIndicators(info) {
+      const redFlags = [];
+      let riskScore = 0;
+
+      const creator = (info.Creator || '').toLowerCase();
+      const author = (info.Author || '').toLowerCase();
+      const title = (info.Title || '').toLowerCase();
+      const producer = (info.Producer || '').toLowerCase();
+      const keywords = (info.Keywords || '').toLowerCase();
+
+      const designTools = ['canva', 'word', 'google docs', 'google', 'adobe', 'indesign', 'microsoft'];
+      const accountingSoftware = ['sap', 'quickbooks', 'xero', 'sage', 'freshbooks', 'netsuite', 'workbench'];
+
+      if (designTools.some(tool => creator.includes(tool))) {
+        redFlags.push('Creator is design software, not accounting system');
+        riskScore += 40;
+      }
+
+      if (accountingSoftware.some(soft => creator.includes(soft))) {
+        riskScore -= 20;
+      }
+
+      if (author && author.length > 0 && !['frankham', 'kugis', 'company', 'group', 'limited', 'ltd'].some(c => author.includes(c))) {
+        if (author.length < 30 && author.split(' ').length <= 3) {
+          redFlags.push('Author is a person\'s name, not company');
+          riskScore += 25;
+        }
+      }
+
+      if (designTools.some(tool => producer.includes(tool))) {
+        redFlags.push('Producer is design software');
+        riskScore += 30;
+      }
+
+      if (keywords && keywords.match(/^[a-z0-9]+$/i) && keywords.length > 8) {
+        redFlags.push('Keywords contain random hash or gibberish');
+        riskScore += 35;
+      }
+
+      const genericTitles = ['invoice', 'template', 'freelancer', 'minimal'];
+      if (genericTitles.some(t => title.includes(t)) && title.length < 50) {
+        redFlags.push('Title is generic template name');
+        riskScore += 20;
+      }
+
+      return {
+        redFlags,
+        riskScore: Math.min(riskScore, 100),
+        info,
+        isRedFlag: riskScore >= 50
+      };
+    }
+
+    function displayResult(result, info) {
+      resultDiv.style.display = 'block';
+
+      const verdict = document.getElementById('verdict');
+      const confidence = document.getElementById('confidence');
+      const badge = document.getElementById('badge');
+      const redFlagsDiv = document.getElementById('redFlags');
+      const flagsList = document.getElementById('flagsList');
+
+      if (result.isRedFlag) {
+        verdict.textContent = 'RED - Likely fraud';
+        confidence.textContent = `Risk score: ${result.riskScore}%`;
+        badge.style.background = 'var(--fill-danger)';
+        badge.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i>';
+      } else {
+        verdict.textContent = 'GREEN - Likely legitimate';
+        confidence.textContent = `Risk score: ${result.riskScore}%`;
+        badge.style.background = 'var(--fill-success)';
+        badge.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+      }
+
+      const metadataList = document.getElementById('metadataList');
+      metadataList.innerHTML = '';
+
+      const fields = [
+        {label: 'Creator', value: info.Creator || '—'},
+        {label: 'Author', value: info.Author || '—'},
+        {label: 'Producer', value: info.Producer || '—'},
+        {label: 'Title', value: info.Title || '—'},
+        {label: 'Keywords', value: info.Keywords || '—'},
+        {label: 'Creation Date', value: info.CreationDate ? formatDate(info.CreationDate) : '—'},
+        {label: 'Modification Date', value: info.ModDate ? formatDate(info.ModDate) : '—'}
+      ];
+
+      fields.forEach(field => {
+        const item = document.createElement('div');
+        item.className = 'metadata-item';
+        item.innerHTML = `<span class="metadata-label">${field.label}</span><span class="metadata-value">${escapeHtml(field.value)}</span>`;
+        metadataList.appendChild(item);
+      });
+
+      if (result.redFlags.length > 0) {
+        redFlagsDiv.style.display = 'block';
+        flagsList.innerHTML = '';
+        result.redFlags.forEach(flag => {
+          const item = document.createElement('div');
+          item.className = 'flag-item';
+          item.innerHTML = `<i class="ti ti-alert-triangle flag-icon" aria-hidden="true"></i>${escapeHtml(flag)}`;
+          flagsList.appendChild(item);
+        });
+      } else {
+        redFlagsDiv.style.display = 'none';
+      }
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      try {
+        if (dateStr.startsWith('D:')) {
+          dateStr = dateStr.substring(2);
+        }
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        return `${day}/${month}/${year}`;
+      } catch {
+        return dateStr;
+      }
+    }
+
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+  </script>
+</body>
+</html>
