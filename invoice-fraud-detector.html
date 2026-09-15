@@ -315,7 +315,7 @@
     <div class="header">
       <h1>Invoice Fraud Detector</h1>
       <p class="subtitle">AI-powered invoice analysis using Gemini</p>
-      <p class="version">v4.0 - Gemini Edition</p>
+      <p class="version">v4.1 - Backend Edition</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
@@ -366,14 +366,11 @@
     <div id="error"></div>
 
     <div class="footer">
-      <p>Powered by Google Gemini. Analysis runs locally and through Gemini API.</p>
+      <p>Powered by Google Gemini. Your API key is secure on the backend.</p>
     </div>
   </div>
 
   <script>
-    const GEMINI_API_KEY = 'AQ.Ab8RN6IH4Ofy3HfYsazLZ0zXMYKwoxXvPOpMhbg4r1MWmOAEDQ';
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
     const dropZone = document.getElementById('dropZone');
@@ -434,7 +431,6 @@
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
 
-        // Render preview
         const firstPage = await pdf.getPage(1);
         const canvas = document.getElementById('previewCanvas');
         const context = canvas.getContext('2d');
@@ -443,7 +439,6 @@
         canvas.height = viewport.height;
         await firstPage.render({canvasContext: context, viewport: viewport}).promise;
 
-        // Extract text
         let fullText = '';
         for (let i = 0; i < pdf.numPages; i++) {
           const page = await pdf.getPage(i + 1);
@@ -451,7 +446,6 @@
           fullText += textContent.items.map(item => item.str).join(' ') + '\n';
         }
 
-        // Send to Gemini
         const result = await analyzeWithGemini(fullText);
         displayResult(result);
       } catch (err) {
@@ -463,90 +457,20 @@
     }
 
     async function analyzeWithGemini(pdfText) {
-      const prompt = `Analyze this invoice text and extract the following information. For each item, respond with ONLY "YES" if clearly present, "NO" if missing or unclear, or "UNCLEAR" if ambiguous:
-
-1. Invoice Number - Is there a clear, unique invoice number/identifier?
-2. Invoice Date - Is there a clear invoice date (in any format)?
-3. VAT Number - Is there a VAT registration number present?
-4. Supplier Address - Is there a complete supplier/vendor address?
-5. Customer Address - Is there a customer/buyer address?
-6. Description - Is there a clear description of goods/services (not just generic "services" text)?
-7. Total Amount - Is there a clear total amount?
-8. Metadata Check - Does this look like a professionally created invoice, or does it seem like it was created in a design tool?
-
-Format your response as:
-Invoice Number: [YES/NO]
-Invoice Date: [YES/NO]
-VAT Number: [YES/NO]
-Supplier Address: [YES/NO]
-Customer Address: [YES/NO]
-Description: [YES/NO]
-Total Amount: [YES/NO]
-Professional Invoice: [YES/NO]
-
-Invoice Text:
-${pdfText.substring(0, 5000)}`;
-
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      const backendUrl = 'https://invoice-fraud-detector-f3prugga2-robbie18.vercel.app/api/analyze';
+      
+      const response = await fetch(backendUrl, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          contents: [{
-            parts: [{text: prompt}]
-          }]
-        })
+        body: JSON.stringify({text: pdfText})
       });
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`);
+        throw new Error(`Backend error: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const responseText = data.contents[0].parts[0].text;
-      
-      // Parse response
-      const lines = responseText.split('\n');
-      const checks = {};
-      lines.forEach(line => {
-        if (line.includes(':')) {
-          const [key, value] = line.split(':');
-          checks[key.trim()] = value.trim();
-        }
-      });
-
-      // Calculate risk score
-      let riskScore = 0;
-      let passCount = 0;
-      const checkResults = [];
-
-      const mapping = [
-        {key: 'Invoice Number', isLaw: true},
-        {key: 'Invoice Date', isLaw: true},
-        {key: 'VAT Number', isLaw: false},
-        {key: 'Supplier Address', isLaw: true},
-        {key: 'Customer Address', isLaw: true},
-        {key: 'Description', isLaw: true},
-        {key: 'Total Amount', isLaw: true},
-        {key: 'Professional Invoice', isLaw: false}
-      ];
-
-      mapping.forEach(item => {
-        const value = checks[item.key] || 'UNCLEAR';
-        const pass = value.includes('YES');
-        if (pass) passCount++;
-        else riskScore += 15;
-        
-        checkResults.push({key: item.key, pass, isLaw: item.isLaw});
-      });
-
-      const isRedFlag = riskScore >= 60 || passCount < 5;
-
-      return {
-        checks: checkResults,
-        riskScore: Math.min(riskScore, 100),
-        isRedFlag,
-        passCount
-      };
+      const result = await response.json();
+      return result;
     }
 
     function displayResult(result) {
