@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice Fraud Detector</title>
+  <title>Invoice Fraud Detector - Gemini</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/tabler-icons.min.css">
   <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <style>
@@ -17,17 +17,15 @@
       --text-primary: #1a1a1a;
       --text-secondary: #666666;
       --text-muted: #999999;
-      --text-danger: #c41e3a;
       --text-success: #047857;
       --surface-0: #f5f5f5;
       --surface-1: #f0f0f0;
       --surface-2: #ffffff;
       --border: #d0d0d0;
-      --border-strong: #b0b0b0;
-      --bg-danger: #fee2e2;
       --bg-success: #d1fae5;
-      --fill-danger: #dc2626;
+      --bg-danger: #fee2e2;
       --fill-success: #10b981;
+      --fill-danger: #dc2626;
       --radius: 8px;
     }
 
@@ -36,13 +34,11 @@
         --text-primary: #f5f5f5;
         --text-secondary: #b0b0b0;
         --text-muted: #808080;
-        --text-danger: #fca5a5;
         --text-success: #6ee7b7;
         --surface-0: #1a1a1a;
         --surface-1: #2a2a2a;
         --surface-2: #3a3a3a;
         --border: #4a4a4a;
-        --border-strong: #5a5a5a;
         --bg-danger: #7f1d1d;
         --bg-success: #064e3b;
         --fill-danger: #ef4444;
@@ -51,7 +47,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: var(--surface-0);
       color: var(--text-primary);
       padding: 20px;
@@ -75,7 +71,6 @@
     .subtitle {
       font-size: 14px;
       color: var(--text-secondary);
-      margin: 0;
     }
 
     .version {
@@ -92,23 +87,18 @@
       cursor: pointer;
       background-color: var(--surface-1);
       transition: all 0.2s;
+      margin-bottom: 2rem;
     }
 
     .upload-zone:hover {
-      border-color: var(--border-strong);
-      background-color: var(--surface-2);
-    }
-
-    .upload-zone.dragover {
       border-color: var(--text-secondary);
-      background-color: var(--surface-2);
     }
 
     .upload-icon {
       font-size: 32px;
       color: var(--text-secondary);
-      margin-bottom: 0.5rem;
       display: block;
+      margin-bottom: 0.5rem;
     }
 
     .upload-title {
@@ -130,11 +120,9 @@
 
     #result {
       display: none;
-      margin-top: 2rem;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 2rem;
-      align-items: start;
     }
 
     .preview-container {
@@ -142,13 +130,54 @@
       border: 0.5px solid var(--border);
       border-radius: 12px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 600px;
+    }
+
+    .preview-controls {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: var(--surface-2);
+      border-bottom: 0.5px solid var(--border);
+      justify-content: center;
+    }
+
+    .zoom-button {
+      padding: 6px 12px;
+      background: var(--surface-1);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    .zoom-button:hover {
+      background: var(--surface-2);
+    }
+
+    .zoom-level {
+      font-size: 12px;
+      color: var(--text-secondary);
+      min-width: 50px;
+      text-align: center;
+      padding: 6px;
+    }
+
+    #previewScroll {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: white;
     }
 
     #previewCanvas {
-      width: 100%;
-      height: auto;
       display: block;
-      background: white;
+      max-width: none;
     }
 
     .checks-column {
@@ -186,7 +215,6 @@
       font-size: 18px;
       font-weight: 500;
       margin: 0;
-      color: var(--text-primary);
     }
 
     .confidence {
@@ -233,12 +261,7 @@
 
     .check-item.fail {
       background-color: var(--bg-danger);
-      color: var(--text-danger);
-    }
-
-    .check-icon {
-      font-weight: 500;
-      min-width: 20px;
+      color: #c41e3a;
     }
 
     #loading {
@@ -267,7 +290,7 @@
       border: 0.5px solid #fca5a5;
       border-radius: var(--radius);
       padding: 1rem;
-      color: var(--text-danger);
+      color: #c41e3a;
       margin-top: 1rem;
     }
 
@@ -283,7 +306,6 @@
     @media (max-width: 900px) {
       #result {
         grid-template-columns: 1fr;
-        gap: 1rem;
       }
     }
   </style>
@@ -292,8 +314,8 @@
   <div class="container">
     <div class="header">
       <h1>Invoice Fraud Detector</h1>
-      <p class="subtitle">Upload a PDF to check metadata and compliance</p>
-      <p class="version">v3.0</p>
+      <p class="subtitle">AI-powered invoice analysis using Gemini</p>
+      <p class="version">v4.0 - Gemini Edition</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
@@ -305,7 +327,15 @@
 
     <div id="result">
       <div class="preview-container">
-        <canvas id="previewCanvas"></canvas>
+        <div class="preview-controls">
+          <button class="zoom-button" id="zoomOut">−</button>
+          <span class="zoom-level" id="zoomLevel">100%</span>
+          <button class="zoom-button" id="zoomIn">+</button>
+          <button class="zoom-button" id="resetZoom">Reset</button>
+        </div>
+        <div id="previewScroll">
+          <canvas id="previewCanvas"></canvas>
+        </div>
       </div>
 
       <div class="checks-column">
@@ -322,12 +352,7 @@
         </div>
 
         <div class="check-card">
-          <p class="card-label">Metadata analysis</p>
-          <div id="metadataChecks" class="checks-list"></div>
-        </div>
-
-        <div class="check-card">
-          <p class="card-label">UK invoice law compliance</p>
+          <p class="card-label">UK Invoice Compliance</p>
           <div id="lawChecks" class="checks-list"></div>
         </div>
       </div>
@@ -335,17 +360,20 @@
 
     <div id="loading">
       <div class="spinner"></div>
-      <p style="color: var(--text-secondary);">Analyzing invoice...</p>
+      <p style="color: var(--text-secondary);">Analyzing invoice with Gemini...</p>
     </div>
 
     <div id="error"></div>
 
     <div class="footer">
-      <p>Metadata checking runs locally in your browser. No data is sent anywhere.</p>
+      <p>Powered by Google Gemini. Analysis runs locally and through Gemini API.</p>
     </div>
   </div>
 
   <script>
+    const GEMINI_API_KEY = 'AQ.Ab8RN6IH4Ofy3HfYsazLZ0zXMYKwoxXvPOpMhbg4r1MWmOAEDQ';
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
     const dropZone = document.getElementById('dropZone');
@@ -355,19 +383,16 @@
     const errorDiv = document.getElementById('error');
 
     dropZone.addEventListener('click', () => fileInput.click());
-
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dropZone.classList.add('dragover');
+      dropZone.style.opacity = '0.7';
     });
-
     dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
+      dropZone.style.opacity = '1';
     });
-
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropZone.classList.remove('dragover');
+      dropZone.style.opacity = '1';
       if (e.dataTransfer.files.length) {
         fileInput.files = e.dataTransfer.files;
         analyzeFile();
@@ -375,6 +400,27 @@
     });
 
     fileInput.addEventListener('change', analyzeFile);
+
+    let currentZoom = 1;
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      currentZoom += 0.2;
+      updateZoom();
+    });
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      if (currentZoom > 0.4) currentZoom -= 0.2;
+      updateZoom();
+    });
+    document.getElementById('resetZoom').addEventListener('click', () => {
+      currentZoom = 1;
+      updateZoom();
+    });
+
+    function updateZoom() {
+      const canvas = document.getElementById('previewCanvas');
+      canvas.style.transform = `scale(${currentZoom})`;
+      canvas.style.transformOrigin = 'top center';
+      document.getElementById('zoomLevel').textContent = Math.round(currentZoom * 100) + '%';
+    }
 
     async function analyzeFile() {
       const file = fileInput.files[0];
@@ -387,9 +433,8 @@
       try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-        const metadata = await pdf.getMetadata();
-        const info = metadata.info || {};
 
+        // Render preview
         const firstPage = await pdf.getPage(1);
         const canvas = document.getElementById('previewCanvas');
         const context = canvas.getContext('2d');
@@ -398,107 +443,113 @@
         canvas.height = viewport.height;
         await firstPage.render({canvasContext: context, viewport: viewport}).promise;
 
+        // Extract text
         let fullText = '';
         for (let i = 0; i < pdf.numPages; i++) {
           const page = await pdf.getPage(i + 1);
           const textContent = await page.getTextContent();
-          const pageText = textContent.items.map(item => item.str).join(' ');
-          fullText += ' ' + pageText;
+          fullText += textContent.items.map(item => item.str).join(' ') + '\n';
         }
 
-        const fraudIndicators = checkFraudIndicators(info, fullText);
-        displayResult(fraudIndicators, info);
+        // Send to Gemini
+        const result = await analyzeWithGemini(fullText);
+        displayResult(result);
       } catch (err) {
-        errorDiv.textContent = 'Error reading PDF. Make sure it\'s a valid invoice PDF.';
+        errorDiv.textContent = 'Error: ' + err.message;
         errorDiv.style.display = 'block';
       }
 
       loadingDiv.style.display = 'none';
     }
 
-    function checkFraudIndicators(info, fullText) {
+    async function analyzeWithGemini(pdfText) {
+      const prompt = `Analyze this invoice text and extract the following information. For each item, respond with ONLY "YES" if clearly present, "NO" if missing or unclear, or "UNCLEAR" if ambiguous:
+
+1. Invoice Number - Is there a clear, unique invoice number/identifier?
+2. Invoice Date - Is there a clear invoice date (in any format)?
+3. VAT Number - Is there a VAT registration number present?
+4. Supplier Address - Is there a complete supplier/vendor address?
+5. Customer Address - Is there a customer/buyer address?
+6. Description - Is there a clear description of goods/services (not just generic "services" text)?
+7. Total Amount - Is there a clear total amount?
+8. Metadata Check - Does this look like a professionally created invoice, or does it seem like it was created in a design tool?
+
+Format your response as:
+Invoice Number: [YES/NO]
+Invoice Date: [YES/NO]
+VAT Number: [YES/NO]
+Supplier Address: [YES/NO]
+Customer Address: [YES/NO]
+Description: [YES/NO]
+Total Amount: [YES/NO]
+Professional Invoice: [YES/NO]
+
+Invoice Text:
+${pdfText.substring(0, 5000)}`;
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          contents: [{
+            parts: [{text: prompt}]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const responseText = data.contents[0].parts[0].text;
+      
+      // Parse response
+      const lines = responseText.split('\n');
+      const checks = {};
+      lines.forEach(line => {
+        if (line.includes(':')) {
+          const [key, value] = line.split(':');
+          checks[key.trim()] = value.trim();
+        }
+      });
+
+      // Calculate risk score
       let riskScore = 0;
-      const metadataChecks = [];
-      const lawChecks = [];
+      let passCount = 0;
+      const checkResults = [];
 
-      const creator = (info.Creator || '').toLowerCase();
-      const author = (info.Author || '').toLowerCase();
-      const title = (info.Title || '').toLowerCase();
-      const producer = (info.Producer || '').toLowerCase();
-      const keywords = (info.Keywords || '').toLowerCase();
+      const mapping = [
+        {key: 'Invoice Number', isLaw: true},
+        {key: 'Invoice Date', isLaw: true},
+        {key: 'VAT Number', isLaw: false},
+        {key: 'Supplier Address', isLaw: true},
+        {key: 'Customer Address', isLaw: true},
+        {key: 'Description', isLaw: true},
+        {key: 'Total Amount', isLaw: true},
+        {key: 'Professional Invoice', isLaw: false}
+      ];
 
-      const suspiciousDesignTools = ['canva', 'adobe', 'indesign', 'google docs'];
-      const accountingSoftware = ['sap', 'quickbooks', 'xero', 'sage', 'freshbooks', 'netsuite', 'workbench', 'aspose'];
+      mapping.forEach(item => {
+        const value = checks[item.key] || 'UNCLEAR';
+        const pass = value.includes('YES');
+        if (pass) passCount++;
+        else riskScore += 15;
+        
+        checkResults.push({key: item.key, pass, isLaw: item.isLaw});
+      });
 
-      if (suspiciousDesignTools.some(tool => creator.includes(tool))) {
-        metadataChecks.push({pass: false, text: 'Creator is design software (Canva, Adobe)'});
-        riskScore += 50;
-      } else if (accountingSoftware.some(soft => creator.includes(soft))) {
-        metadataChecks.push({pass: true, text: 'Creator is accounting software'});
-        riskScore -= 30;
-      } else {
-        metadataChecks.push({pass: true, text: 'Creator software looks legitimate'});
-      }
-
-      if (keywords && keywords.match(/^[a-z0-9]{10,}$/) && !keywords.includes(' ')) {
-        metadataChecks.push({pass: false, text: 'Keywords contain random gibberish'});
-        riskScore += 45;
-      } else {
-        metadataChecks.push({pass: true, text: 'No random keywords'});
-      }
-
-      const templateIndicators = ['freelancer invoice', 'minimal invoice', 'invoice template', 'sample invoice', 'black and gray'];
-      if (templateIndicators.some(t => title.includes(t))) {
-        metadataChecks.push({pass: false, text: 'Title matches generic template'});
-        riskScore += 40;
-      } else {
-        metadataChecks.push({pass: true, text: 'Not a generic template title'});
-      }
-
-      if (suspiciousDesignTools.some(tool => producer.includes(tool))) {
-        metadataChecks.push({pass: false, text: 'Producer is design software'});
-        riskScore += 35;
-      } else {
-        metadataChecks.push({pass: true, text: 'Producer looks legitimate'});
-      }
-
-      const hasVatNumber = /GB\d{9,12}/.test(fullText);
-      metadataChecks.push({pass: hasVatNumber, text: 'VAT number present'});
-      if (!hasVatNumber) riskScore += 20;
-
-      const hasInvoiceNumber = /invoice.*\d{5,}|no\s*\d{5,}|#\d{5,}/i.test(fullText);
-      lawChecks.push({pass: hasInvoiceNumber, text: 'Invoice number found'});
-      if (!hasInvoiceNumber) riskScore += 25;
-
-      const hasDate = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(fullText);
-      lawChecks.push({pass: hasDate, text: 'Invoice date found'});
-      if (!hasDate) riskScore += 20;
-
-      const hasAddress = /address|street|road|house|park|building|suite|floor/i.test(fullText);
-      lawChecks.push({pass: hasAddress, text: 'Address details found'});
-      if (!hasAddress) riskScore += 20;
-
-      const hasVaguDescription = /Professional Services Rendered|Multidisciplinary Consultancy Services|Services Provided/.test(fullText);
-      lawChecks.push({pass: !hasVaguDescription, text: 'Proper description (not vague)'});
-      if (hasVaguDescription && riskScore >= 30) riskScore += 30;
-
-      if (fullText.length < 500) {
-        lawChecks.push({pass: false, text: 'Invoice content appears brief'});
-        riskScore += 15;
-      } else {
-        lawChecks.push({pass: true, text: 'Sufficient invoice content'});
-      }
+      const isRedFlag = riskScore >= 60 || passCount < 5;
 
       return {
-        metadataChecks,
-        lawChecks,
-        riskScore: Math.min(Math.max(riskScore, 0), 100),
-        info,
-        isRedFlag: riskScore >= 60
+        checks: checkResults,
+        riskScore: Math.min(riskScore, 100),
+        isRedFlag,
+        passCount
       };
     }
 
-    function displayResult(result, info) {
+    function displayResult(result) {
       resultDiv.style.display = 'grid';
 
       const verdict = document.getElementById('verdict');
@@ -507,31 +558,24 @@
 
       if (result.isRedFlag) {
         verdict.textContent = 'RED - Likely fraud';
-        confidence.textContent = `Risk score: ${result.riskScore}%`;
+        verdict.style.color = '#c41e3a';
+        confidence.textContent = `Risk score: ${result.riskScore}% | ${result.passCount}/8 checks passed`;
         badge.style.background = 'var(--fill-danger)';
         badge.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i>';
       } else {
         verdict.textContent = 'GREEN - Likely legitimate';
-        confidence.textContent = `Risk score: ${result.riskScore}%`;
+        verdict.style.color = 'var(--text-success)';
+        confidence.textContent = `Risk score: ${result.riskScore}% | ${result.passCount}/8 checks passed`;
         badge.style.background = 'var(--fill-success)';
         badge.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
       }
 
-      const metadataContainer = document.getElementById('metadataChecks');
-      metadataContainer.innerHTML = '';
-      result.metadataChecks.forEach(check => {
-        const item = document.createElement('div');
-        item.className = `check-item ${check.pass ? 'pass' : 'fail'}`;
-        item.innerHTML = `<span class="check-icon">${check.pass ? '✓' : '✗'}</span><span>${check.text}</span>`;
-        metadataContainer.appendChild(item);
-      });
-
       const lawContainer = document.getElementById('lawChecks');
       lawContainer.innerHTML = '';
-      result.lawChecks.forEach(check => {
+      result.checks.forEach(check => {
         const item = document.createElement('div');
         item.className = `check-item ${check.pass ? 'pass' : 'fail'}`;
-        item.innerHTML = `<span class="check-icon">${check.pass ? '✓' : '✗'}</span><span>${check.text}</span>`;
+        item.innerHTML = `<span style="font-weight: 500; min-width: 20px;">${check.pass ? '✓' : '✗'}</span><span>${check.key}</span>`;
         lawContainer.appendChild(item);
       });
     }
