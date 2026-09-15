@@ -283,6 +283,22 @@
       font-style: italic;
     }
 
+    .duplicate-check {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 0.5px solid var(--border);
+    }
+
+    .duplicate-input {
+      width: 100%;
+      padding: 8px;
+      font-size: 12px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-1);
+      color: var(--text-primary);
+    }
+
     #loading {
       display: none;
       text-align: center;
@@ -330,7 +346,7 @@
   <div class="container">
     <div class="header">
       <h1>Invoice Checker</h1>
-      <p class="subtitle">Metadata analysis + manual UK law verification</p>
+      <p class="subtitle">Advanced validation with metadata analysis</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
@@ -365,6 +381,16 @@
         </div>
 
         <div class="card">
+          <p class="card-title">Advanced Checks</p>
+          <div id="advancedChecksList"></div>
+          <div class="duplicate-check">
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 0.5rem;">Check for duplicate invoice numbers:</p>
+            <input type="text" id="invoiceNumberHistory" class="duplicate-input" placeholder="Paste previous invoice numbers (comma separated)">
+            <p id="duplicateWarning" style="font-size: 11px; color: #f59e0b; margin-top: 0.5rem; display: none;"></p>
+          </div>
+        </div>
+
+        <div class="card">
           <p class="card-title">UK Invoice Requirements</p>
           <div id="checklistContainer"></div>
         </div>
@@ -388,6 +414,9 @@
     const loadingDiv = document.getElementById('loading');
     const errorDiv = document.getElementById('error');
     const previewScroll = document.getElementById('previewScroll');
+    const invoiceNumberHistoryInput = document.getElementById('invoiceNumberHistory');
+
+    let currentInvoiceNumber = null;
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => {
@@ -407,6 +436,10 @@
     });
 
     fileInput.addEventListener('change', analyzeFile);
+
+    invoiceNumberHistoryInput.addEventListener('input', () => {
+      checkForDuplicates();
+    });
 
     let currentZoom = 1;
     const canvas = document.getElementById('previewCanvas');
@@ -451,8 +484,9 @@
         }
 
         displayMetadata(info);
+        const advancedResults = displayAdvancedChecks(fullText);
         const checklist = displayChecklist(fullText);
-        displayVerdict(info, checklist);
+        displayVerdict(info, checklist, advancedResults);
       } catch (err) {
         errorDiv.textContent = 'Error: ' + err.message;
         errorDiv.style.display = 'block';
@@ -547,6 +581,68 @@
       });
     }
 
+    function displayAdvancedChecks(fullText) {
+      const container = document.getElementById('advancedChecksList');
+      container.innerHTML = '';
+
+      const results = {};
+
+      // VAT validation
+      const vatMatch = fullText.match(/GB\s*(\d{3})\s*(\d{3})\s*(\d{3})|GB(\d{9})/i);
+      const hasValidVAT = vatMatch ? true : false;
+      results.vatValid = hasValidVAT;
+      
+      const vatDiv = document.createElement('div');
+      vatDiv.className = 'metadata-item' + (hasValidVAT ? '' : ' warning');
+      vatDiv.innerHTML = `<span class="metadata-label">VAT Format ${hasValidVAT ? '✓' : '✗'}</span><span class="auto-detected">${hasValidVAT ? 'Valid GB VAT format found' : 'VAT not in valid GB format'}</span>`;
+      container.appendChild(vatDiv);
+
+      // Date validation
+      const dateMatches = fullText.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/g);
+      let allDatesValid = true;
+      if (dateMatches) {
+        dateMatches.forEach(dateStr => {
+          const parts = dateStr.split(/[\/\-\.]/);
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]);
+          const year = parseInt(parts[2]);
+          
+          if (day > 31 || month > 12 || year > new Date().getFullYear() + 1) {
+            allDatesValid = false;
+          }
+        });
+      }
+      results.datesValid = allDatesValid;
+
+      const dateDiv = document.createElement('div');
+      dateDiv.className = 'metadata-item' + (allDatesValid ? '' : ' warning');
+      dateDiv.innerHTML = `<span class="metadata-label">Date Validity ${allDatesValid ? '✓' : '✗'}</span><span class="auto-detected">${allDatesValid ? 'All dates are valid' : 'Invalid or future dates found'}</span>`;
+      container.appendChild(dateDiv);
+
+      // Payment terms
+      const paymentTermsRegex = /(?:net|payment terms|due in|payment due)[\s:]*(\d+)\s*(?:days?|day)|(?:net\s*\d+|payment\s*(?:terms?)?\s*\d+\s*days?)/i;
+      const hasPaymentTerms = paymentTermsRegex.test(fullText);
+      results.paymentTerms = hasPaymentTerms;
+
+      const paymentDiv = document.createElement('div');
+      paymentDiv.className = 'metadata-item' + (hasPaymentTerms ? '' : ' warning');
+      const paymentMatch = fullText.match(paymentTermsRegex);
+      paymentDiv.innerHTML = `<span class="metadata-label">Payment Terms ${hasPaymentTerms ? '✓' : '✗'}</span><span class="auto-detected">${hasPaymentTerms ? 'Payment terms found: ' + (paymentMatch ? paymentMatch[0].substring(0, 40) : '') : 'No payment terms specified'}</span>`;
+      container.appendChild(paymentDiv);
+
+      // UK Postcode
+      const postcodeRegex = /[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i;
+      const hasPostcode = postcodeRegex.test(fullText);
+      results.postcode = hasPostcode;
+
+      const postcodeDiv = document.createElement('div');
+      postcodeDiv.className = 'metadata-item' + (hasPostcode ? '' : ' warning');
+      postcodeDiv.innerHTML = `<span class="metadata-label">UK Postcode ${hasPostcode ? '✓' : '✗'}</span><span class="auto-detected">${hasPostcode ? 'Valid UK postcode found' : 'No UK postcode found'}</span>`;
+      container.appendChild(postcodeDiv);
+
+      return results;
+    }
+
     function displayChecklist(fullText) {
       const container = document.getElementById('checklistContainer');
       container.innerHTML = '';
@@ -554,47 +650,47 @@
       const checks = [
         {
           name: 'Invoice Number',
-          regex: /invoice\s*(?:no|number|#)?\s*[:#]?\s*(\d{5,})|invoice\s*(\d{7,})|inv\s*[:#]?\s*(\d{5,})/i,
+          regex: /invoice\s*(?:no|number|#|:)?\s*(\d{5,})|inv\s*:?\s*(\d{5,})|invoice\s+(\d{7,})|^\s*(\d{5,})\s*$/m,
           description: 'Unique invoice identifier'
         },
         {
           name: 'Invoice Date',
-          regex: /\d{1,2}\s*[\/\-\.]\s*\d{1,2}\s*[\/\-\.]\s*\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s*,?\s*\d{4}|date[:\s]+\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/i,
+          regex: /\d{1,2}\s*[\/\-\.]\s*\d{1,2}\s*[\/\-\.]\s*\d{4}|(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}\s*,?\s*\d{4}|date[:\s]*\d{1,2}[\/-]\d{1,2}[\/-]\d{4}|dated[:\s]*\d{1,2}\s(?:january|february|march|april|may|june|july|august|september|october|november|december)/i,
           description: 'Date of invoice'
         },
         {
           name: 'VAT Number',
-          regex: /GB\s*\d{9,12}|VAT\s*(?:Number|No|Reg|#)?\s*:?\s*\d{9,12}|VAT\s*ID[:\s]+\d{9,12}/i,
+          regex: /GB\s*\d{3}\s*\d{3}\s*\d{3}|GB\d{9}|VAT\s*(?:registration|number|no|id|#)?:?\s*GB\s*\d{3}\s*\d{3}\s*\d{3}|VAT\s*(?:registration|number|no|id|#)?:?\s*GB\d{9}|VAT\s+(?:number|no)?\s*:?\s*\d{9,12}/i,
           description: 'VAT registration (GB...)'
         },
         {
           name: 'Supplier Details',
-          regex: /(?:from|supplier|company|invoice from|bill from)[:\s]*([A-Z][^\n]{20,}?(?:Ltd|Limited|plc|Inc|LLC|GmbH|AG|SA))/i,
-          description: 'Supplier name and full details'
+          regex: /(?:from|supplier|company|invoice from|bill from)[:\s]*([A-Z][^\n]{15,}?(?:Ltd|Limited|Ltd\.|plc|Inc|LLC|GmbH|AG|SA|PLC|Ltd|Pte))/i,
+          description: 'Supplier name and company'
         },
         {
           name: 'Supplier Address',
-          regex: /(?:address|from)[:\s]*([^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive|place|close|park|court)[^\n]*)/i,
+          regex: /(?:from|supplier|company address|registered address|our address)[:\s]*([^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive|place|close|park|court|way|crescent)[^\n]*)/i,
           description: 'Full supplier address'
         },
         {
           name: 'Customer Address',
-          regex: /(?:bill to|customer|client|ship to|invoice to)[:\s]*([^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive|place|close|park|court)[^\n]*)/i,
+          regex: /(?:bill to|customer|client|ship to|invoice to|customer address|sold to)[:\s]*([^\n]*(?:street|road|house|suite|floor|building|avenue|lane|drive|place|close|park|court|way|crescent)[^\n]*)/i,
           description: 'Full customer address'
         },
         {
           name: 'Line Items/Description',
-          regex: /(?:description|item|service|product|line item)[:\s]*([^\n]{15,})/i,
-          description: 'Detailed goods/services (not vague)'
+          regex: /(?:description|item|service|product|line item)[:\s]*([^\n]{20,})|(?:qty|quantity|units?)[:\s]*\d+[^\n]*(?:price|amount|total)[^\n]*/i,
+          description: 'Itemised goods/services'
         },
         {
           name: 'Total Amount',
-          regex: /(?:total|amount due|grand total|total due|total invoice|net total|gross total)[:\s]*[£$€]?\s*[\d,]+\.?\d{0,2}/i,
+          regex: /(?:total|amount due|grand total|total due|total invoice|net total|gross total|invoice total)[:\s]*£\s*[\d,]+\.?\d{0,2}|total[:\s]*\$\s*[\d,]+\.?\d{0,2}|total[:\s]*€\s*[\d,]+\.?\d{0,2}/i,
           description: 'Clear invoice total'
         },
         {
           name: 'Company Reg Number',
-          regex: /(?:company registration|companies house|reg|registration|co reg|company no)[:\s]*(\d{8})/i,
+          regex: /(?:company registration|companies house|reg|registration|co reg|company no|company number)[:\s]*(\d{8})/i,
           description: '8-digit company registration'
         }
       ];
@@ -605,7 +701,11 @@
         if (found) checkedCount++;
         
         const match = fullText.match(check.regex);
-        const matchText = match ? match[0].substring(0, 55) : '';
+        const matchText = match ? match[0].substring(0, 55).trim() : '';
+
+        if (check.name === 'Invoice Number' && match) {
+          currentInvoiceNumber = match[1] || match[2] || match[3] || match[4];
+        }
 
         const div = document.createElement('div');
         div.className = 'checklist-item';
@@ -614,7 +714,7 @@
           <div class="checklist-content">
             <label for="check-${index}" class="checklist-label">${check.name}</label>
             <span class="checklist-found">${check.description}</span>
-            ${found ? `<span class="auto-detected">Found: "${matchText}..."</span>` : '<span class="auto-detected">Not auto-detected - check manually</span>'}
+            ${found ? `<span class="auto-detected">Found: "${matchText}"</span>` : '<span class="auto-detected">Not auto-detected - check manually</span>'}
           </div>
         `;
         container.appendChild(div);
@@ -623,7 +723,25 @@
       return {total: checks.length, checked: checkedCount};
     }
 
-    function displayVerdict(info, checklist) {
+    function checkForDuplicates() {
+      const historyText = invoiceNumberHistoryInput.value.trim();
+      const warningDiv = document.getElementById('duplicateWarning');
+
+      if (!currentInvoiceNumber || !historyText) {
+        warningDiv.style.display = 'none';
+        return;
+      }
+
+      const previousNumbers = historyText.split(',').map(n => n.trim());
+      if (previousNumbers.includes(currentInvoiceNumber)) {
+        warningDiv.style.display = 'block';
+        warningDiv.textContent = '⚠️ DUPLICATE: This invoice number already exists in your history!';
+      } else {
+        warningDiv.style.display = 'none';
+      }
+    }
+
+    function displayVerdict(info, checklist, advancedResults) {
       const badge = document.getElementById('badge');
       const verdict = document.getElementById('verdict');
       const reason = document.getElementById('verdictReason');
@@ -641,6 +759,12 @@
       if (completionRate < 50) suspicionScore += 30;
       if (completionRate < 30) suspicionScore += 20;
 
+      // Advanced checks
+      if (!advancedResults.vatValid) suspicionScore += 15;
+      if (!advancedResults.datesValid) suspicionScore += 25;
+      if (!advancedResults.paymentTerms) suspicionScore += 10;
+      if (!advancedResults.postcode) suspicionScore += 10;
+
       const isRedFlag = suspicionScore >= 60 || completionRate < 40;
 
       if (isRedFlag) {
@@ -648,13 +772,13 @@
         verdict.style.color = '#c41e3a';
         badge.style.background = 'var(--fill-danger)';
         badge.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i>';
-        reason.textContent = `Suspicion score: ${suspicionScore}/100 | Only ${checklist.checked}/${checklist.total} requirements found`;
+        reason.textContent = `Suspicion score: ${suspicionScore}/100 | Only ${checklist.checked}/${checklist.total} requirements`;
       } else {
         verdict.textContent = 'GREEN - Likely Legitimate';
         verdict.style.color = '#047857';
         badge.style.background = 'var(--fill-success)';
         badge.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
-        reason.textContent = `Suspicion score: ${suspicionScore}/100 | ${checklist.checked}/${checklist.total} requirements found`;
+        reason.textContent = `Suspicion score: ${suspicionScore}/100 | ${checklist.checked}/${checklist.total} requirements`;
       }
     }
   </script>
