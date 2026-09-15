@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice Fraud Detector - Gemini</title>
+  <title>Invoice Fraud Detector</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/tabler-icons.min.css">
   <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <style>
@@ -314,8 +314,8 @@
   <div class="container">
     <div class="header">
       <h1>Invoice Fraud Detector</h1>
-      <p class="subtitle">AI-powered invoice analysis using Gemini</p>
-      <p class="version">v4.0 - Gemini Edition</p>
+      <p class="subtitle">AI-powered analysis using Gemini</p>
+      <p class="version">v5.0 - Test</p>
     </div>
 
     <div class="upload-zone" id="dropZone">
@@ -352,7 +352,7 @@
         </div>
 
         <div class="check-card">
-          <p class="card-label">UK Invoice Compliance</p>
+          <p class="card-label">Invoice Checks</p>
           <div id="lawChecks" class="checks-list"></div>
         </div>
       </div>
@@ -360,18 +360,19 @@
 
     <div id="loading">
       <div class="spinner"></div>
-      <p style="color: var(--text-secondary);">Analyzing invoice with Gemini...</p>
+      <p style="color: var(--text-secondary);">Analyzing with Gemini...</p>
     </div>
 
     <div id="error"></div>
 
     <div class="footer">
-      <p>Powered by Google Gemini. Analysis runs locally and through Gemini API.</p>
+      <p>Powered by Google Gemini. Testing accuracy.</p>
     </div>
   </div>
 
   <script>
-
+    const GEMINI_API_KEY = 'AQ.Ab8RN6IH4Ofy3HfYsazLZ0zXMYKwoxXvPOpMhbg4r1MWmOAEDQ';
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
@@ -433,7 +434,6 @@
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
 
-        // Render preview
         const firstPage = await pdf.getPage(1);
         const canvas = document.getElementById('previewCanvas');
         const context = canvas.getContext('2d');
@@ -442,7 +442,6 @@
         canvas.height = viewport.height;
         await firstPage.render({canvasContext: context, viewport: viewport}).promise;
 
-        // Extract text
         let fullText = '';
         for (let i = 0; i < pdf.numPages; i++) {
           const page = await pdf.getPage(i + 1);
@@ -450,7 +449,6 @@
           fullText += textContent.items.map(item => item.str).join(' ') + '\n';
         }
 
-        // Send to Gemini
         const result = await analyzeWithGemini(fullText);
         displayResult(result);
       } catch (err) {
@@ -462,20 +460,87 @@
     }
 
     async function analyzeWithGemini(pdfText) {
-      const backendUrl = 'https://invoice-fraud-detector-5u74pruhp-robbie18.vercel.app/api/analyze';
-      
-      const response = await fetch(backendUrl, {
+      const prompt = `Analyze this invoice text and extract the following information. For each item, respond with ONLY "YES" if clearly present, "NO" if missing or unclear, or "UNCLEAR" if ambiguous:
+
+1. Invoice Number - Is there a clear, unique invoice number/identifier?
+2. Invoice Date - Is there a clear invoice date (in any format)?
+3. VAT Number - Is there a VAT registration number present?
+4. Supplier Address - Is there a complete supplier/vendor address?
+5. Customer Address - Is there a customer/buyer address?
+6. Description - Is there a clear description of goods/services (not just generic "services" text)?
+7. Total Amount - Is there a clear total amount?
+8. Professional Invoice - Does this look professionally created?
+
+Format your response as:
+Invoice Number: [YES/NO]
+Invoice Date: [YES/NO]
+VAT Number: [YES/NO]
+Supplier Address: [YES/NO]
+Customer Address: [YES/NO]
+Description: [YES/NO]
+Total Amount: [YES/NO]
+Professional Invoice: [YES/NO]
+
+Invoice Text:
+${pdfText.substring(0, 5000)}`;
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({text: pdfText})
+        body: JSON.stringify({
+          contents: [{
+            parts: [{text: prompt}]
+          }]
+        })
       });
 
       if (!response.ok) {
-        throw new Error(`Backend error: ${response.statusText}`);
+        throw new Error(`Gemini error: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      return result;
+      const data = await response.json();
+      const responseText = data.contents[0].parts[0].text;
+
+      const lines = responseText.split('\n');
+      const checks = {};
+      lines.forEach(line => {
+        if (line.includes(':')) {
+          const [key, value] = line.split(':');
+          checks[key.trim()] = value.trim();
+        }
+      });
+
+      let riskScore = 0;
+      let passCount = 0;
+      const checkResults = [];
+
+      const mapping = [
+        'Invoice Number',
+        'Invoice Date',
+        'VAT Number',
+        'Supplier Address',
+        'Customer Address',
+        'Description',
+        'Total Amount',
+        'Professional Invoice'
+      ];
+
+      mapping.forEach(key => {
+        const value = checks[key] || 'UNCLEAR';
+        const pass = value.includes('YES');
+        if (pass) passCount++;
+        else riskScore += 15;
+        checkResults.push({key, pass});
+      });
+
+      const isRedFlag = riskScore >= 60 || passCount < 5;
+
+      return {
+        checks: checkResults,
+        riskScore: Math.min(riskScore, 100),
+        isRedFlag,
+        passCount
+      };
     }
 
     function displayResult(result) {
